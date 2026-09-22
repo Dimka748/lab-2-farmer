@@ -1,0 +1,11 @@
+*.exe
+*.o
+*.out
+*.obj
+.vs/
+.idea/
+.vscode/
+*.vcxproj*
+*.sln
+.DS_Store
+Thumbs.db

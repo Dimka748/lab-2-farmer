@@ -9,28 +9,56 @@
 #define START_DAY 1
 #define START_HOUR 8
 #define MAX_FARMER_NAME 32
+#define MAX_ITEMS 10
+#define MAX_NAME_LEN 32
 
-/* ID предметов */
-#define ITEM_EMPTY      0
-#define ITEM_WOOD       1
-#define ITEM_STONE      2
-#define ITEM_SEEDS      3
-#define ITEM_IRON       4
-#define ITEM_GOLD       5
-#define ITEM_WATER      6
-#define ITEM_FOOD       7
-#define ITEM_TOOL       8
-#define ITEM_ARTIFACT   9
 
 /* ===== Глобальные переменные ===== */
 int current_day = START_DAY;
 int current_hour = START_HOUR;
 char farmer_name[MAX_FARMER_NAME] = ""; 
+char item_names[MAX_ITEMS][MAX_NAME_LEN]; 
 
 int inventory[INVENTORY_SIZE] = {
-    ITEM_WOOD, ITEM_STONE, ITEM_SEEDS, ITEM_EMPTY, ITEM_IRON,
-    ITEM_WOOD, ITEM_EMPTY, ITEM_GOLD, ITEM_EMPTY, ITEM_FOOD
+    1, 2, 3, 0, 4,
+    1, 0, 5, 0, 7
 };
+/* ===== Стандартные названия ===== */
+void set_default_items(void) {
+    const char *def[MAX_ITEMS] = {
+        "Пусто", "Дерево", "Камень", "Семена_пшеницы", "Железо",
+        "Золото", "Вода", "Еда", "Инструмент", "Артефакт"
+    };
+    for (int i = 0; i < MAX_ITEMS; i++) {
+        strncpy(item_names[i], def[i], MAX_NAME_LEN - 1);
+        item_names[i][MAX_NAME_LEN - 1] = '\0';
+    }
+}
+
+/* ===== Загрузка items.txt ===== */
+void load_items(void) {
+    FILE *f = fopen("items.txt", "r");
+    if (f == NULL) {
+        printf("Предупреждение: items.txt не найден. Используем стандартные названия.\n");
+        set_default_items();
+        return;
+    }
+
+    char line[MAX_NAME_LEN];
+    int id = 0;
+    while (id < MAX_ITEMS && fgets(line, sizeof(line), f)) {
+        line[strcspn(line, "\n")] = '\0';
+        if (strlen(line) == 0) continue;
+        strncpy(item_names[id], line, MAX_NAME_LEN - 1);
+        item_names[id][MAX_NAME_LEN - 1] = '\0';
+        id++;
+    }
+    fclose(f);
+
+    for (; id < MAX_ITEMS; id++) {
+        snprintf(item_names[id], MAX_NAME_LEN, "Предмет_%d", id);
+    }
+}
 
 /* ===== Прототипы функций ===== */
 void show_menu(void);
@@ -43,6 +71,8 @@ void drop_item(void);
 void remove_duplicates(void);
 const char* get_item_name(int id);
 void read_string(const char *prompt, char *buf, int size); 
+void load_items(void);
+void set_default_items(void);
 
 /* ===== Ввод строки с защитой ===== */
 void read_string(const char *prompt, char *buf, int size) {
@@ -51,52 +81,35 @@ void read_string(const char *prompt, char *buf, int size) {
         buf[strcspn(buf, "\n")] = '\0';
     }
 }
-/* ===== Главная функция ===== */
-int main(void) {
 
+int main(void) {
     SetConsoleCP(65001);
     SetConsoleOutputCP(65001);
-    int choice;
 
     printf("Введите имя фермера: ");
-read_string("", farmer_name, MAX_FARMER_NAME);
+    read_string("", farmer_name, MAX_FARMER_NAME);
 
-/* Если имя пустое — ставим запасное */
-if (strlen(farmer_name) == 0) {
-    strcpy(farmer_name, "Безымянный");
-}
+    if (strlen(farmer_name) == 0) {
+        strcpy(farmer_name, "Безымянный");
+    }
 
+    load_items();
+
+    int choice;
     do {
         show_menu();
         choice = read_number("Ваш выбор: ");
-
         switch (choice) {
-            case 0:
-                printf("Выход. Пока!\n");
-                break;
-            case 1:
-                show_time();
-                break;
-            case 2:
-                work_time();
-                break;
-            case 3:
-                show_inventory();
-                break;
-            case 4:
-                put_item();
-                break;
-            case 5:
-                drop_item();
-                break;
-            case 6:
-                remove_duplicates();
-                break;
-            default:
-                printf("Неверный пункт. Попробуйте снова.\n");
+            case 0: printf("Выход. Пока, %s!\n", farmer_name); break;
+            case 1: show_time(); break;
+            case 2: work_time(); break;
+            case 3: show_inventory(); break;
+            case 4: put_item(); break;
+            case 5: drop_item(); break;
+            case 6: remove_duplicates(); break;
+            default: printf("Неверный пункт.\n");
         }
     } while (choice != 0);
-
     return 0;
 }
 
@@ -115,18 +128,16 @@ void show_menu(void) {
 
 /* ===== Ввод числа с защитой от дурака ===== */
 int read_number(const char *text) {
-    int number;
-    char ch;
-
+    char buffer[32];
     while (1) {
         printf("%s", text);
-
-        if (scanf("%d", &number) == 1) {
-            while ((ch = getchar()) != '\n' && ch != EOF);
-            return number;
-        } else {
-            printf("Ошибка! Введите число.\n");
-            while ((ch = getchar()) != '\n' && ch != EOF);
+        if (fgets(buffer, sizeof(buffer), stdin) != NULL) {
+            int value;
+            if (sscanf(buffer, "%d", &value) == 1) {
+                return value;
+            } else {
+                printf("Ошибка! Введите число.\n");
+            }
         }
     }
 }
@@ -195,12 +206,12 @@ void drop_item(void) {
         return;
     }
 
-    if (inventory[index] == ITEM_EMPTY) {
+    if (inventory[index] == 0) {
         printf("Слот %d уже пуст.\n", index);
     } else {
         printf("Предмет [%d] (%s) выброшен из слота %d.\n",
                inventory[index], get_item_name(inventory[index]), index);
-        inventory[index] = ITEM_EMPTY;
+        inventory[index] = 0;
     }
 }
 
@@ -210,13 +221,13 @@ void remove_duplicates(void) {
     show_inventory();
 
     for (int i = 0; i < INVENTORY_SIZE; i++) {
-        if (inventory[i] == ITEM_EMPTY) {
+        if (inventory[i] == 0) {
             continue;
         }
 
         for (int j = i + 1; j < INVENTORY_SIZE; j++) {
             if (inventory[j] == inventory[i]) {
-                inventory[j] = ITEM_EMPTY;
+                inventory[j] = 0;
             }
         }
     }
@@ -225,19 +236,8 @@ void remove_duplicates(void) {
     show_inventory();
 }
 
-/* ===== Имя предмета по ID ===== */
+/* ===== Имя предмета ===== */
 const char* get_item_name(int id) {
-    switch (id) {
-        case ITEM_EMPTY:    return "Пусто";
-        case ITEM_WOOD:     return "Дерево";
-        case ITEM_STONE:    return "Камень";
-        case ITEM_SEEDS:    return "Семена";
-        case ITEM_IRON:     return "Железо";
-        case ITEM_GOLD:     return "Золото";
-        case ITEM_WATER:    return "Вода";
-        case ITEM_FOOD:     return "Еда";
-        case ITEM_TOOL:     return "Инструмент";
-        case ITEM_ARTIFACT: return "Артефакт";
-        default:            return "Неизвестно";
-    }
+    if (id < 0 || id >= MAX_ITEMS) return "Неизвестно";
+    return item_names[id];
 }

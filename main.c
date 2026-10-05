@@ -73,6 +73,8 @@ const char* get_item_name(int id);
 void read_string(const char *prompt, char *buf, int size); 
 void load_items(void);
 void set_default_items(void);
+void find_item_by_name(void);
+void write_diary(void);
 
 /* ===== Ввод строки с защитой ===== */
 void read_string(const char *prompt, char *buf, int size) {
@@ -100,15 +102,17 @@ int main(void) {
         show_menu();
         choice = read_number("Ваш выбор: ");
         switch (choice) {
-            case 0: printf("Выход. Пока, %s!\n", farmer_name); break;
-            case 1: show_time(); break;
-            case 2: work_time(); break;
-            case 3: show_inventory(); break;
-            case 4: put_item(); break;
-            case 5: drop_item(); break;
-            case 6: remove_duplicates(); break;
-            default: printf("Неверный пункт.\n");
-        }
+    case 0: printf("Выход. Пока, %s!\n", farmer_name); break;
+    case 1: show_time(); break;
+    case 2: work_time(); break;
+    case 3: show_inventory(); break;
+    case 4: put_item(); break;
+    case 5: drop_item(); break;
+    case 6: remove_duplicates(); break;
+    case 7: find_item_by_name(); break;
+    case 8: write_diary(); break;
+    default: printf("Неверный пункт.\n");
+}
     } while (choice != 0);
     return 0;
 }
@@ -122,7 +126,9 @@ void show_menu(void) {
     printf("[3] Посмотреть инвентарь\n");
     printf("[4] Положить предмет\n");
     printf("[5] Выбросить предмет\n");
-    printf("[6] Устранение дубликатов (вариант 9)\n");
+    printf("[6] Устранение дубликатов\n");
+    printf("[7] Поиск предмета по названию\n");
+    printf("[8] Записать в дневник фермера\n");
     printf("===========================\n");
 }
 
@@ -234,6 +240,55 @@ void remove_duplicates(void) {
 
     printf("\n--- После обработки ---\n");
     show_inventory();
+}
+
+/* ===== 7. Поиск предмета по названию ===== */
+void find_item_by_name(void) {
+    char query[MAX_NAME_LEN];
+    read_string("Введите название предмета: ", query, MAX_NAME_LEN);
+
+    int found_id = -1;
+    for (int i = 0; i < MAX_ITEMS; i++) {
+        if (strcmp(item_names[i], query) == 0) {
+            found_id = i;
+            break;
+        }
+    }
+
+    if (found_id == -1) {
+        printf("Предмет '%s' не найден в каталоге.\n", query);
+        return;
+    }
+
+    printf("ID предмета '%s' = %d. Ищем в рюкзаке...\n", query, found_id);
+    int count = 0;
+    for (int i = 0; i < INVENTORY_SIZE; i++) {
+        if (inventory[i] == found_id) {
+            printf("  Найдено в слоте %d\n", i);
+            count++;
+        }
+    }
+    if (count == 0) printf("В рюкзаке такого предмета нет.\n");
+    else printf("Всего найдено: %d\n", count);
+}
+
+/* ===== 8. Дневник фермера ===== */
+void write_diary(void) {
+    FILE *f = fopen("diary.txt", "a");
+    if (f == NULL) {
+        printf("Ошибка: не удалось открыть diary.txt.\n");
+        return;
+    }
+    fprintf(f, "=== День %d, %02d:00 ===\n", current_day, current_hour);
+    fprintf(f, "Фермер: %s\n", farmer_name);
+    fprintf(f, "Инвентарь:\n");
+    for (int i = 0; i < INVENTORY_SIZE; i++) {
+        fprintf(f, "  Слот %d: [%d] - %s\n",
+                i, inventory[i], get_item_name(inventory[i]));
+    }
+    fprintf(f, "\n");
+    fclose(f);
+    printf("Запись добавлена в diary.txt\n");
 }
 
 /* ===== Имя предмета ===== */

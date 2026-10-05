@@ -324,12 +324,8 @@ void process_schedule(void) {
         char name[MAX_NAME_LEN], place[MAX_NAME_LEN];
         int start_h = 0, end_h = 0;
 
-        printf("DEBUG: строка: [%s]\n", line);           /* ← добавили */
-        fflush(stdout);                                   /* ← добавили */
         char *p1 = strchr(line, ';');
-        printf("DEBUG: p1 = %p\n", (void*)p1);            /* ← добавили */
-        fflush(stdout);                                   /* ← добавили */
-        if (!p1) continue;
+if (!p1) continue;
         *p1 = '\0';
         strncpy(name, line, MAX_NAME_LEN - 1);
         name[MAX_NAME_LEN - 1] = '\0';

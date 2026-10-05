@@ -75,6 +75,7 @@ void load_items(void);
 void set_default_items(void);
 void find_item_by_name(void);
 void write_diary(void);
+void process_schedule(void);
 
 /* ===== Ввод строки с защитой ===== */
 void read_string(const char *prompt, char *buf, int size) {
@@ -111,6 +112,7 @@ int main(void) {
     case 6: remove_duplicates(); break;
     case 7: find_item_by_name(); break;
     case 8: write_diary(); break;
+    case 9: process_schedule(); break;
     default: printf("Неверный пункт.\n");
 }
     } while (choice != 0);
@@ -129,6 +131,7 @@ void show_menu(void) {
     printf("[6] Устранение дубликатов\n");
     printf("[7] Поиск предмета по названию\n");
     printf("[8] Записать в дневник фермера\n");
+    printf("[9] Расписание жителей деревни\n");
     printf("===========================\n");
 }
 
@@ -289,6 +292,118 @@ void write_diary(void) {
     fprintf(f, "\n");
     fclose(f);
     printf("Запись добавлена в diary.txt\n");
+}
+
+/* ===== 9. Вариант 7: Расписание жителей ===== */
+void process_schedule(void) {
+    FILE *fin = fopen("input.txt", "r");
+    if (fin == NULL) {
+        printf("Ошибка: input.txt не найден.\n");
+        return;
+    }
+    FILE *fout = fopen("output.txt", "w");
+    if (fout == NULL) {
+        printf("Ошибка: не удалось создать output.txt.\n");
+        fclose(fin);
+        return;
+    }
+
+    char all_npcs[MAX_ITEMS][MAX_NAME_LEN];      /* все уникальные NPC */
+    int all_count = 0;
+
+    char active_npcs[MAX_ITEMS][MAX_NAME_LEN];   /* кто сейчас на смене */
+    char active_places[MAX_ITEMS][MAX_NAME_LEN];
+    int active_count = 0;
+
+    char line[256];
+
+    while (fgets(line, sizeof(line), fin)) {
+        line[strcspn(line, "\n")] = '\0';
+        if (strlen(line) == 0) continue;
+
+        char name[MAX_NAME_LEN], place[MAX_NAME_LEN];
+        int start_h = 0, end_h = 0;
+
+        printf("DEBUG: строка: [%s]\n", line);           /* ← добавили */
+        fflush(stdout);                                   /* ← добавили */
+        char *p1 = strchr(line, ';');
+        printf("DEBUG: p1 = %p\n", (void*)p1);            /* ← добавили */
+        fflush(stdout);                                   /* ← добавили */
+        if (!p1) continue;
+        *p1 = '\0';
+        strncpy(name, line, MAX_NAME_LEN - 1);
+        name[MAX_NAME_LEN - 1] = '\0';
+
+        char *p2 = strchr(p1 + 1, ';');
+        if (!p2) continue;
+        *p2 = '\0';
+        start_h = atoi(p1 + 1);
+
+        char *p3 = strchr(p2 + 1, ';');
+        if (!p3) continue;
+        *p3 = '\0';
+        end_h = atoi(p2 + 1);
+
+        strncpy(place, p3 + 1, MAX_NAME_LEN - 1);
+        place[MAX_NAME_LEN - 1] = '\0';
+
+        /* Добавляем NPC в список всех */
+        int exists = 0;
+        for (int i = 0; i < all_count; i++) {
+            if (strcmp(all_npcs[i], name) == 0) { exists = 1; break; }
+        }
+        if (!exists && all_count < MAX_ITEMS) {
+            strncpy(all_npcs[all_count], name, MAX_NAME_LEN - 1);
+            all_count++;
+        }
+
+        /* Проверяем, работает ли сейчас */
+        int in_shift = 0;
+        if (start_h <= end_h) {
+            if (current_hour >= start_h && current_hour < end_h) in_shift = 1;
+        } else {
+            /* Ночная смена: например, 20 → 6 */
+            if (current_hour >= start_h || current_hour < end_h) in_shift = 1;
+        }
+
+        if (in_shift) {
+            int found = -1;
+            for (int i = 0; i < active_count; i++) {
+                if (strcmp(active_npcs[i], name) == 0) { found = i; break; }
+            }
+            if (found == -1 && active_count < MAX_ITEMS) {
+                strncpy(active_npcs[active_count], name, MAX_NAME_LEN - 1);
+                strncpy(active_places[active_count], place, MAX_NAME_LEN - 1);
+                active_count++;
+            } else if (found != -1) {
+                strncpy(active_places[found], place, MAX_NAME_LEN - 1);
+            }
+        }
+    }
+    fclose(fin);
+
+    /* Вывод */
+    printf("\n--- Расписание жителей (День %d, %02d:00) ---\n",
+           current_day, current_hour);
+    fprintf(fout, "Расписание жителей (День %d, %02d:00)\n",
+            current_day, current_hour);
+
+    for (int i = 0; i < all_count; i++) {
+        int found = -1;
+        for (int j = 0; j < active_count; j++) {
+            if (strcmp(all_npcs[i], active_npcs[j]) == 0) { found = j; break; }
+        }
+        if (found != -1) {
+            printf("%s: %s\n", all_npcs[i], active_places[found]);
+            fprintf(fout, "%s: %s\n", all_npcs[i], active_places[found]);
+        } else {
+            printf("%s: [Спит дома]\n", all_npcs[i]);
+            fprintf(fout, "%s: [Спит дома]\n", all_npcs[i]);
+        }
+    }
+
+    fclose(fout);
+    printf("\nРезультат сохранён в output.txt\n");
 }
 
 /* ===== Имя предмета ===== */

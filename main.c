@@ -76,6 +76,7 @@ void set_default_items(void);
 void find_item_by_name(void);
 void write_diary(void);
 void process_schedule(void);
+void start_adventure(void);
 
 /* ===== Ввод строки с защитой ===== */
 void read_string(const char *prompt, char *buf, int size) {
@@ -113,6 +114,7 @@ int main(void) {
     case 7: find_item_by_name(); break;
     case 8: write_diary(); break;
     case 9: process_schedule(); break;
+    case 10: start_adventure(); break;
     default: printf("Неверный пункт.\n");
 }
     } while (choice != 0);
@@ -132,6 +134,7 @@ void show_menu(void) {
     printf("[7] Поиск предмета по названию\n");
     printf("[8] Записать в дневник фермера\n");
     printf("[9] Расписание жителей деревни\n");
+    printf("[10] Отправиться в приключение\n");
     printf("===========================\n");
 }
 
@@ -308,10 +311,10 @@ void process_schedule(void) {
         return;
     }
 
-    char all_npcs[MAX_ITEMS][MAX_NAME_LEN];      /* все уникальные NPC */
+    char all_npcs[MAX_ITEMS][MAX_NAME_LEN];    
     int all_count = 0;
 
-    char active_npcs[MAX_ITEMS][MAX_NAME_LEN];   /* кто сейчас на смене */
+    char active_npcs[MAX_ITEMS][MAX_NAME_LEN];   
     char active_places[MAX_ITEMS][MAX_NAME_LEN];
     int active_count = 0;
 
@@ -358,7 +361,6 @@ if (!p1) continue;
         if (start_h <= end_h) {
             if (current_hour >= start_h && current_hour < end_h) in_shift = 1;
         } else {
-            /* Ночная смена: например, 20 → 6 */
             if (current_hour >= start_h || current_hour < end_h) in_shift = 1;
         }
 
@@ -406,4 +408,17 @@ if (!p1) continue;
 const char* get_item_name(int id) {
     if (id < 0 || id >= MAX_ITEMS) return "Неизвестно";
     return item_names[id];
+}
+
+/* ===== 10. Приключение ===== */
+void start_adventure(void) {
+    printf("\n--- ВЫ ОТПРАВИЛИСЬ В ПРИКЛЮЧЕНИЕ ---\n");
+    printf("(Пока что здесь пусто. Нажмите Enter, чтобы вернуться)\n");
+    
+    // Ждем нажатия Enter, чтобы пользователь успел прочитать текст
+    getchar(); 
+    
+    // Очистка буфера (на всякий случай)
+    int ch;
+    while ((ch = getchar()) != '\n' && ch != EOF);
 }

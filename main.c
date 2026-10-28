@@ -12,11 +12,11 @@
 #define MAX_FARMER_NAME 32
 #define MAX_ITEMS 10
 #define MAX_NAME_LEN 32
+
 #define MAP_MIN_SIZE 5
 #define MAP_MAX_SIZE 30
-#define TREE_CHANCE 20 // 20% шанс дерева
-#define STONE_CHANCE 10 // 10% шанс камня
-
+#define TREE_CHANCE 20
+#define STONE_CHANCE 10
 
 /* ===== Глобальные переменные ===== */
 int current_day = START_DAY;
@@ -28,6 +28,7 @@ int inventory[INVENTORY_SIZE] = {
     1, 2, 3, 0, 4,
     1, 0, 5, 0, 7
 };
+
 /* ===== Стандартные названия ===== */
 void set_default_items(void) {
     const char *def[MAX_ITEMS] = {
@@ -81,10 +82,13 @@ void set_default_items(void);
 void find_item_by_name(void);
 void write_diary(void);
 void process_schedule(void);
+
+// Новые прототипы для лабы 4
 void start_adventure(void);
 char** create_map(int height, int width);
 void free_map(char** map, int height);
 void generate_map(char** map, int height, int width);
+void draw_map(char** map, int height, int width);
 
 /* ===== Ввод строки с защитой ===== */
 void read_string(const char *prompt, char *buf, int size) {
@@ -94,10 +98,11 @@ void read_string(const char *prompt, char *buf, int size) {
     }
 }
 
+/* ===== Главная функция ===== */
 int main(void) {
     SetConsoleCP(65001);
     SetConsoleOutputCP(65001);
-    srand(time(NULL));
+    srand(time(NULL)); // Инициализация генератора случайных чисел
 
     printf("Введите имя фермера: ");
     read_string("", farmer_name, MAX_FARMER_NAME);
@@ -113,19 +118,19 @@ int main(void) {
         show_menu();
         choice = read_number("Ваш выбор: ");
         switch (choice) {
-    case 0: printf("Выход. Пока, %s!\n", farmer_name); break;
-    case 1: show_time(); break;
-    case 2: work_time(); break;
-    case 3: show_inventory(); break;
-    case 4: put_item(); break;
-    case 5: drop_item(); break;
-    case 6: remove_duplicates(); break;
-    case 7: find_item_by_name(); break;
-    case 8: write_diary(); break;
-    case 9: process_schedule(); break;
-    case 10: start_adventure(); break;
-    default: printf("Неверный пункт.\n");
-}
+            case 0: printf("Выход. Пока, %s!\n", farmer_name); break;
+            case 1: show_time(); break;
+            case 2: work_time(); break;
+            case 3: show_inventory(); break;
+            case 4: put_item(); break;
+            case 5: drop_item(); break;
+            case 6: remove_duplicates(); break;
+            case 7: find_item_by_name(); break;
+            case 8: write_diary(); break;
+            case 9: process_schedule(); break;
+            case 10: start_adventure(); break;
+            default: printf("Неверный пункт.\n");
+        }
     } while (choice != 0);
     return 0;
 }
@@ -177,82 +182,65 @@ void work_time(void) {
         return;
     }
 
-    current_hour = current_hour + hours;
+    current_hour += hours;
 
     while (current_hour >= MAX_HOURS) {
-        current_hour = current_hour - MAX_HOURS;
-        current_day = current_day + 1;
+        current_hour -= MAX_HOURS;
+        current_day += 1;
     }
 
-    printf("Прошло %d ч. Теперь: День %d, %02d:00\n",
-           hours, current_day, current_hour);
+    printf("Прошло %d ч. Теперь: День %d, %02d:00\n", hours, current_day, current_hour);
 }
 
 /* ===== 3. Показать инвентарь ===== */
 void show_inventory(void) {
     printf("\n--- Инвентарь ---\n");
     for (int i = 0; i < INVENTORY_SIZE; i++) {
-        printf("Слот %d: [%d] (%s)\n",
-               i, inventory[i], get_item_name(inventory[i]));
+        printf("Слот %d: [%d] (%s)\n", i, inventory[i], get_item_name(inventory[i]));
     }
 }
 
 /* ===== 4. Положить предмет ===== */
 void put_item(void) {
     int index = read_number("Индекс слота (0-9): ");
-
     if (index < 0 || index >= INVENTORY_SIZE) {
         printf("Ошибка: индекс должен быть от 0 до 9.\n");
         return;
     }
-
     int id = read_number("ID предмета (0-9): ");
-
     if (id < 0 || id > 9) {
         printf("Ошибка: ID должен быть от 0 до 9.\n");
         return;
     }
-
     inventory[index] = id;
-    printf("Предмет [%d] (%s) положен в слот %d.\n",
-           id, get_item_name(id), index);
+    printf("Предмет [%d] (%s) положен в слот %d.\n", id, get_item_name(id), index);
 }
 
 /* ===== 5. Выбросить предмет ===== */
 void drop_item(void) {
     int index = read_number("Индекс слота для очистки (0-9): ");
-
     if (index < 0 || index >= INVENTORY_SIZE) {
         printf("Ошибка: индекс должен быть от 0 до 9.\n");
         return;
     }
-
     if (inventory[index] == 0) {
         printf("Слот %d уже пуст.\n", index);
     } else {
-        printf("Предмет [%d] (%s) выброшен из слота %d.\n",
-               inventory[index], get_item_name(inventory[index]), index);
+        printf("Предмет [%d] (%s) выброшен из слота %d.\n", inventory[index], get_item_name(inventory[index]), index);
         inventory[index] = 0;
     }
 }
 
-/* ===== 6. Вариант 9: Устранение дубликатов ===== */
+/* ===== 6. Устранение дубликатов ===== */
 void remove_duplicates(void) {
     printf("\n--- До обработки ---\n");
     show_inventory();
-
     for (int i = 0; i < INVENTORY_SIZE; i++) {
-        if (inventory[i] == 0) {
-            continue;
-        }
-
+        if (inventory[i] == 0) continue;
         for (int j = i + 1; j < INVENTORY_SIZE; j++) {
-            if (inventory[j] == inventory[i]) {
-                inventory[j] = 0;
-            }
+            if (inventory[j] == inventory[i]) inventory[j] = 0;
         }
     }
-
     printf("\n--- После обработки ---\n");
     show_inventory();
 }
@@ -298,8 +286,7 @@ void write_diary(void) {
     fprintf(f, "Фермер: %s\n", farmer_name);
     fprintf(f, "Инвентарь:\n");
     for (int i = 0; i < INVENTORY_SIZE; i++) {
-        fprintf(f, "  Слот %d: [%d] - %s\n",
-                i, inventory[i], get_item_name(inventory[i]));
+        fprintf(f, "  Слот %d: [%d] - %s\n", i, inventory[i], get_item_name(inventory[i]));
     }
     fprintf(f, "\n");
     fclose(f);
@@ -320,10 +307,10 @@ void process_schedule(void) {
         return;
     }
 
-    char all_npcs[MAX_ITEMS][MAX_NAME_LEN];    
+    char all_npcs[MAX_ITEMS][MAX_NAME_LEN];
     int all_count = 0;
 
-    char active_npcs[MAX_ITEMS][MAX_NAME_LEN];   
+    char active_npcs[MAX_ITEMS][MAX_NAME_LEN];
     char active_places[MAX_ITEMS][MAX_NAME_LEN];
     int active_count = 0;
 
@@ -337,7 +324,7 @@ void process_schedule(void) {
         int start_h = 0, end_h = 0;
 
         char *p1 = strchr(line, ';');
-if (!p1) continue;
+        if (!p1) continue;
         *p1 = '\0';
         strncpy(name, line, MAX_NAME_LEN - 1);
         name[MAX_NAME_LEN - 1] = '\0';
@@ -355,7 +342,6 @@ if (!p1) continue;
         strncpy(place, p3 + 1, MAX_NAME_LEN - 1);
         place[MAX_NAME_LEN - 1] = '\0';
 
-        /* Добавляем NPC в список всех */
         int exists = 0;
         for (int i = 0; i < all_count; i++) {
             if (strcmp(all_npcs[i], name) == 0) { exists = 1; break; }
@@ -365,7 +351,6 @@ if (!p1) continue;
             all_count++;
         }
 
-        /* Проверяем, работает ли сейчас */
         int in_shift = 0;
         if (start_h <= end_h) {
             if (current_hour >= start_h && current_hour < end_h) in_shift = 1;
@@ -389,11 +374,8 @@ if (!p1) continue;
     }
     fclose(fin);
 
-    /* Вывод */
-    printf("\n--- Расписание жителей (День %d, %02d:00) ---\n",
-           current_day, current_hour);
-    fprintf(fout, "Расписание жителей (День %d, %02d:00)\n",
-            current_day, current_hour);
+    printf("\n--- Расписание жителей (День %d, %02d:00) ---\n", current_day, current_hour);
+    fprintf(fout, "Расписание жителей (День %d, %02d:00)\n", current_day, current_hour);
 
     for (int i = 0; i < all_count; i++) {
         int found = -1;
@@ -419,19 +401,18 @@ const char* get_item_name(int id) {
     return item_names[id];
 }
 
-
-/* ===== Функции для работы с картой ===== */
+/* ========================================================= */
+/* ===== НОВЫЕ ФУНКЦИИ ДЛЯ ЛАБОРАТОРНОЙ №4 ================= */
+/* ========================================================= */
 
 // Создание динамического двумерного массива
 char** create_map(int height, int width) {
-    // 1. Выделяем память под массив указателей (строки)
     char **map = (char**)malloc(height * sizeof(char*));
     if (map == NULL) {
         printf("Ошибка: не удалось выделить память под карту!\n");
         return NULL;
     }
 
-    // 2. Выделяем память под каждую строку
     for (int i = 0; i < height; i++) {
         map[i] = (char*)malloc(width * sizeof(char));
         if (map[i] == NULL) {
@@ -445,12 +426,9 @@ char** create_map(int height, int width) {
 // Очистка памяти
 void free_map(char** map, int height) {
     if (map == NULL) return;
-    
-    // 1. Сначала чистим строки
     for (int i = 0; i < height; i++) {
         free(map[i]);
     }
-    // 2. Потом сам массив указателей
     free(map);
 }
 
@@ -458,49 +436,83 @@ void free_map(char** map, int height) {
 void generate_map(char** map, int height, int width) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            // Если это граница — ставим стену
             if (y == 0 || y == height - 1 || x == 0 || x == width - 1) {
                 map[y][x] = '#';
-            } 
-            // Внутри — случайные препятствия
-            else {
-                int r = rand() % 100; // Случайное число от 0 до 99
+            } else {
+                int r = rand() % 100;
                 if (r < TREE_CHANCE) {
-                    map[y][x] = 'T'; // Дерево
+                    map[y][x] = 'T';
                 } else if (r < TREE_CHANCE + STONE_CHANCE) {
-                    map[y][x] = 'R'; // Камень
+                    map[y][x] = 'R';
                 } else {
-                    map[y][x] = '.'; // Свободная ячейка
+                    map[y][x] = '.';
                 }
             }
         }
     }
 }
 
+// Отрисовка карты на экране
+void draw_map(char** map, int height, int width) {
+    printf("\n   ");
+    for (int x = 0; x < width; x++) {
+        if (x < 10) printf("%d ", x);
+        else printf("%d", x % 10);
+    }
+    printf("\n");
+
+    for (int y = 0; y < height; y++) {
+        if (y < 10) printf(" %d ", y);
+        else printf("%d ", y);
+        
+        for (int x = 0; x < width; x++) {
+            char cell = map[y][x];
+            if (cell == '#') {
+                printf("\033[90m# \033[0m");
+            } else if (cell == 'T') {
+                printf("\033[32mT \033[0m");
+            } else if (cell == 'R') {
+                printf("\033[37mR \033[0m");
+            } else if (cell == '@') {
+                printf("\033[33m@ \033[0m");
+            } else {
+                printf(". ");
+            }
+        }
+        printf("\n");
+    }
+}
 
 /* ===== 10. Приключение ===== */
 void start_adventure(void) {
     printf("\n--- ВЫ ОТПРАВИЛИСЬ В ПРИКЛЮЧЕНИЕ ---\n");
     
-    // Генерируем случайный размер
     int height = MAP_MIN_SIZE + rand() % (MAP_MAX_SIZE - MAP_MIN_SIZE + 1);
     int width = MAP_MIN_SIZE + rand() % (MAP_MAX_SIZE - MAP_MIN_SIZE + 1);
     
-    printf("Сгенерирована карта размером %dx%d\n", height, width);
-
-    // Создаем и заполняем
     char **map = create_map(height, width);
-    if (map != NULL) {
-        generate_map(map, height, width);
-        printf("Карта успешно создана и заполнена!\n");
-        
-        // Очищаем память, чтобы не было утечек
-        free_map(map, height);
-        printf("Память успешно очищена!\n");
+    if (map == NULL) return;
+
+    generate_map(map, height, width);
+
+    int hero_x, hero_y;
+    int found = 0;
+    while (found == 0) {
+        hero_x = rand() % (width - 2) + 1;
+        hero_y = rand() % (height - 2) + 1;
+        if (map[hero_y][hero_x] == '.') {
+            found = 1;
+        }
     }
+    
+    map[hero_y][hero_x] = '@';
+
+    draw_map(map, height, width);
+
+    free_map(map, height);
 
     printf("\nНажмите Enter, чтобы вернуться в меню...\n");
-    getchar();
+    getchar(); 
     int ch;
     while ((ch = getchar()) != '\n' && ch != EOF);
 }

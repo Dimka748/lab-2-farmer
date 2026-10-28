@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <Windows.h>
 #include <string.h>
+#include <time.h>
 
 /* ===== Константы ===== */
 #define INVENTORY_SIZE 10
@@ -11,6 +12,10 @@
 #define MAX_FARMER_NAME 32
 #define MAX_ITEMS 10
 #define MAX_NAME_LEN 32
+#define MAP_MIN_SIZE 5
+#define MAP_MAX_SIZE 30
+#define TREE_CHANCE 20 // 20% шанс дерева
+#define STONE_CHANCE 10 // 10% шанс камня
 
 
 /* ===== Глобальные переменные ===== */
@@ -77,6 +82,9 @@ void find_item_by_name(void);
 void write_diary(void);
 void process_schedule(void);
 void start_adventure(void);
+char** create_map(int height, int width);
+void free_map(char** map, int height);
+void generate_map(char** map, int height, int width);
 
 /* ===== Ввод строки с защитой ===== */
 void read_string(const char *prompt, char *buf, int size) {
@@ -89,6 +97,7 @@ void read_string(const char *prompt, char *buf, int size) {
 int main(void) {
     SetConsoleCP(65001);
     SetConsoleOutputCP(65001);
+    srand(time(NULL));
 
     printf("Введите имя фермера: ");
     read_string("", farmer_name, MAX_FARMER_NAME);
@@ -410,15 +419,88 @@ const char* get_item_name(int id) {
     return item_names[id];
 }
 
+
+/* ===== Функции для работы с картой ===== */
+
+// Создание динамического двумерного массива
+char** create_map(int height, int width) {
+    // 1. Выделяем память под массив указателей (строки)
+    char **map = (char**)malloc(height * sizeof(char*));
+    if (map == NULL) {
+        printf("Ошибка: не удалось выделить память под карту!\n");
+        return NULL;
+    }
+
+    // 2. Выделяем память под каждую строку
+    for (int i = 0; i < height; i++) {
+        map[i] = (char*)malloc(width * sizeof(char));
+        if (map[i] == NULL) {
+            printf("Ошибка: не удалось выделить память под строку!\n");
+            return NULL;
+        }
+    }
+    return map;
+}
+
+// Очистка памяти
+void free_map(char** map, int height) {
+    if (map == NULL) return;
+    
+    // 1. Сначала чистим строки
+    for (int i = 0; i < height; i++) {
+        free(map[i]);
+    }
+    // 2. Потом сам массив указателей
+    free(map);
+}
+
+// Генерация карты
+void generate_map(char** map, int height, int width) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            // Если это граница — ставим стену
+            if (y == 0 || y == height - 1 || x == 0 || x == width - 1) {
+                map[y][x] = '#';
+            } 
+            // Внутри — случайные препятствия
+            else {
+                int r = rand() % 100; // Случайное число от 0 до 99
+                if (r < TREE_CHANCE) {
+                    map[y][x] = 'T'; // Дерево
+                } else if (r < TREE_CHANCE + STONE_CHANCE) {
+                    map[y][x] = 'R'; // Камень
+                } else {
+                    map[y][x] = '.'; // Свободная ячейка
+                }
+            }
+        }
+    }
+}
+
+
 /* ===== 10. Приключение ===== */
 void start_adventure(void) {
     printf("\n--- ВЫ ОТПРАВИЛИСЬ В ПРИКЛЮЧЕНИЕ ---\n");
-    printf("(Пока что здесь пусто. Нажмите Enter, чтобы вернуться)\n");
     
-    // Ждем нажатия Enter, чтобы пользователь успел прочитать текст
-    getchar(); 
+    // Генерируем случайный размер
+    int height = MAP_MIN_SIZE + rand() % (MAP_MAX_SIZE - MAP_MIN_SIZE + 1);
+    int width = MAP_MIN_SIZE + rand() % (MAP_MAX_SIZE - MAP_MIN_SIZE + 1);
     
-    // Очистка буфера (на всякий случай)
+    printf("Сгенерирована карта размером %dx%d\n", height, width);
+
+    // Создаем и заполняем
+    char **map = create_map(height, width);
+    if (map != NULL) {
+        generate_map(map, height, width);
+        printf("Карта успешно создана и заполнена!\n");
+        
+        // Очищаем память, чтобы не было утечек
+        free_map(map, height);
+        printf("Память успешно очищена!\n");
+    }
+
+    printf("\nНажмите Enter, чтобы вернуться в меню...\n");
+    getchar();
     int ch;
     while ((ch = getchar()) != '\n' && ch != EOF);
 }

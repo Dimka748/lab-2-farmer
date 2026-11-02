@@ -83,12 +83,13 @@ void find_item_by_name(void);
 void write_diary(void);
 void process_schedule(void);
 
-// Новые прототипы для лабы 4
+// Лаба 4
 void start_adventure(void);
 char** create_map(int height, int width);
 void free_map(char** map, int height);
 void generate_map(char** map, int height, int width);
 void draw_map(char** map, int height, int width);
+void game_loop(char** map, int height, int width, int start_x, int start_y);
 
 /* ===== Ввод строки с защитой ===== */
 void read_string(const char *prompt, char *buf, int size) {
@@ -102,7 +103,7 @@ void read_string(const char *prompt, char *buf, int size) {
 int main(void) {
     SetConsoleCP(65001);
     SetConsoleOutputCP(65001);
-    srand(time(NULL)); // Инициализация генератора случайных чисел
+    srand(time(NULL));
 
     printf("Введите имя фермера: ");
     read_string("", farmer_name, MAX_FARMER_NAME);
@@ -152,7 +153,7 @@ void show_menu(void) {
     printf("===========================\n");
 }
 
-/* ===== Ввод числа с защитой от дурака ===== */
+/* ===== Ввод числа ===== */
 int read_number(const char *text) {
     char buffer[32];
     while (1) {
@@ -176,19 +177,15 @@ void show_time(void) {
 /* ===== 2. Поработать ===== */
 void work_time(void) {
     int hours = read_number("Сколько часов работать? ");
-
     if (hours < 0) {
         printf("Ошибка: часы не могут быть отрицательными.\n");
         return;
     }
-
     current_hour += hours;
-
     while (current_hour >= MAX_HOURS) {
         current_hour -= MAX_HOURS;
         current_day += 1;
     }
-
     printf("Прошло %d ч. Теперь: День %d, %02d:00\n", hours, current_day, current_hour);
 }
 
@@ -293,7 +290,7 @@ void write_diary(void) {
     printf("Запись добавлена в diary.txt\n");
 }
 
-/* ===== 9. Вариант 7: Расписание жителей ===== */
+/* ===== 9. Вариант 7: Расписание ===== */
 void process_schedule(void) {
     FILE *fin = fopen("input.txt", "r");
     if (fin == NULL) {
@@ -401,38 +398,24 @@ const char* get_item_name(int id) {
     return item_names[id];
 }
 
-/* ========================================================= */
-/* ===== НОВЫЕ ФУНКЦИИ ДЛЯ ЛАБОРАТОРНОЙ №4 ================= */
-/* ========================================================= */
+/* ===== Карта =================================== */
 
-// Создание динамического двумерного массива
 char** create_map(int height, int width) {
     char **map = (char**)malloc(height * sizeof(char*));
-    if (map == NULL) {
-        printf("Ошибка: не удалось выделить память под карту!\n");
-        return NULL;
-    }
-
+    if (map == NULL) return NULL;
     for (int i = 0; i < height; i++) {
         map[i] = (char*)malloc(width * sizeof(char));
-        if (map[i] == NULL) {
-            printf("Ошибка: не удалось выделить память под строку!\n");
-            return NULL;
-        }
+        if (map[i] == NULL) return NULL;
     }
     return map;
 }
 
-// Очистка памяти
 void free_map(char** map, int height) {
     if (map == NULL) return;
-    for (int i = 0; i < height; i++) {
-        free(map[i]);
-    }
+    for (int i = 0; i < height; i++) free(map[i]);
     free(map);
 }
 
-// Генерация карты
 void generate_map(char** map, int height, int width) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
@@ -440,30 +423,23 @@ void generate_map(char** map, int height, int width) {
                 map[y][x] = '#';
             } else {
                 int r = rand() % 100;
-                if (r < TREE_CHANCE) {
-                    map[y][x] = 'T';
-                } else if (r < TREE_CHANCE + STONE_CHANCE) {
-                    map[y][x] = 'R';
-                } else {
-                    map[y][x] = '.';
-                }
+                if (r < TREE_CHANCE) map[y][x] = 'T';
+                else if (r < TREE_CHANCE + STONE_CHANCE) map[y][x] = 'R';
+                else map[y][x] = '.';
             }
         }
     }
 }
 
-// Отрисовка карты на экране
 void draw_map(char** map, int height, int width) {
     printf("\n   ");
     for (int x = 0; x < width; x++) {
-        if (x < 10) printf("%d ", x);
-        else printf("%d", x % 10);
+        printf("%d ", x % 10); // Выровненная ось X
     }
     printf("\n");
 
     for (int y = 0; y < height; y++) {
-        if (y < 10) printf(" %d ", y);
-        else printf("%d ", y);
+        printf("%2d ", y); // Выровненная ось Y
         
         for (int x = 0; x < width; x++) {
             char cell = map[y][x];
@@ -483,13 +459,64 @@ void draw_map(char** map, int height, int width) {
     }
 }
 
-/* ===== 10. Приключение ===== */
+void game_loop(char** map, int height, int width, int start_x, int start_y) {
+    int hero_x = start_x;
+    int hero_y = start_y;
+    char input;
+
+    while (1) {
+        draw_map(map, height, width);
+        printf("\nУправление: W (вверх), A (влево), S (вниз), D (вправо). Q - сбежать домой.\n");
+        printf("Ваш ход: ");
+        
+        input = getchar();
+        int ch;
+        while ((ch = getchar()) != '\n' && ch != EOF);
+
+        if (input == 'q' || input == 'Q') {
+            printf("Вы сбежали домой!\n");
+            break; 
+        }
+
+        if (input >= 'A' && input <= 'Z') input += 32;
+
+        int new_x = hero_x;
+        int new_y = hero_y;
+
+        if (input == 'w') new_y = hero_y - 1;
+        else if (input == 's') new_y = hero_y + 1;
+        else if (input == 'a') new_x = hero_x - 1;
+        else if (input == 'd') new_x = hero_x + 1;
+        else {
+            printf("Неверная клавиша.\n");
+            continue;
+        }
+
+        if (new_x < 0 || new_x >= width || new_y < 0 || new_y >= height) {
+            printf("Там край карты!\n");
+            continue;
+        }
+
+        char target_cell = map[new_y][new_x];
+        if (target_cell == '.' || target_cell == ' ') {
+            map[hero_y][hero_x] = '.';
+            hero_x = new_x;
+            hero_y = new_y;
+            map[hero_y][hero_x] = '@';
+        } else {
+            printf("Там препятствие (%c)!\n", target_cell);
+        }
+    }
+}
+
 void start_adventure(void) {
     printf("\n--- ВЫ ОТПРАВИЛИСЬ В ПРИКЛЮЧЕНИЕ ---\n");
     
     int height = MAP_MIN_SIZE + rand() % (MAP_MAX_SIZE - MAP_MIN_SIZE + 1);
     int width = MAP_MIN_SIZE + rand() % (MAP_MAX_SIZE - MAP_MIN_SIZE + 1);
     
+    printf("Сгенерирована карта размером %dx%d\n", height, width);
+
     char **map = create_map(height, width);
     if (map == NULL) return;
 
@@ -500,19 +527,15 @@ void start_adventure(void) {
     while (found == 0) {
         hero_x = rand() % (width - 2) + 1;
         hero_y = rand() % (height - 2) + 1;
-        if (map[hero_y][hero_x] == '.') {
-            found = 1;
-        }
+        if (map[hero_y][hero_x] == '.') found = 1;
     }
     
     map[hero_y][hero_x] = '@';
 
-    draw_map(map, height, width);
+    game_loop(map, height, width, hero_x, hero_y);
 
     free_map(map, height);
-
+    
     printf("\nНажмите Enter, чтобы вернуться в меню...\n");
     getchar(); 
-    int ch;
-    while ((ch = getchar()) != '\n' && ch != EOF);
 }

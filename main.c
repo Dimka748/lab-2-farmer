@@ -88,7 +88,7 @@ void start_adventure(void);
 char** create_map(int height, int width);
 void free_map(char** map, int height);
 void generate_map(char** map, int height, int width);
-void draw_map(char** map, int height, int width);
+void draw_map(char** map, int height, int width, int hero_x, int hero_y, int shout_turns);
 void game_loop(char** map, int height, int width, int start_x, int start_y);
 
 /* ===== Ввод строки с защитой ===== */
@@ -431,31 +431,60 @@ void generate_map(char** map, int height, int width) {
     }
 }
 
-void draw_map(char** map, int height, int width) {
+void draw_map(char** map, int height, int width, int hero_x, int hero_y, int shout_turns) {
     printf("\n   ");
     for (int x = 0; x < width; x++) {
-        printf("%d ", x % 10); // Выровненная ось X
+        printf("%d ", x % 10);
     }
     printf("\n");
 
     for (int y = 0; y < height; y++) {
-        printf("%2d ", y); // Выровненная ось Y
+        printf("%2d ", y);
         
         for (int x = 0; x < width; x++) {
             char cell = map[y][x];
-            if (cell == '#') {
-                printf("\033[90m# \033[0m");
-            } else if (cell == 'T') {
-                printf("\033[32mT \033[0m");
-            } else if (cell == 'R') {
-                printf("\033[37mR \033[0m");
-            } else if (cell == '@') {
-                printf("\033[33m@ \033[0m");
+            
+            // Вычисляем расстояние от героя до текущей клетки (по модулю)
+            int dist_x = abs(x - hero_x);
+            int dist_y = abs(y - hero_y);
+            
+            // Радиус обычного зрения — 5 клеток
+            int view_radius = 5;
+            // Радиус крика — 7 клеток
+            int shout_radius = 7;
+
+            int is_visible = 0;
+
+            // Если это сам герой — он всегда виден
+            if (x == hero_x && y == hero_y) {
+                is_visible = 1;
+            }
+            // Если мы в радиусе обычного зрения
+            else if (dist_x <= view_radius && dist_y <= view_radius) {
+                is_visible = 1;
+            }
+            // Если активен крик и мы в радиусе крика
+            else if (shout_turns > 0 && dist_x <= shout_radius && dist_y <= shout_radius) {
+                is_visible = 1;
+            }
+
+            if (is_visible) {
+                // Рисуем как обычно
+                if (cell == '#') printf("\033[90m# \033[0m");
+                else if (cell == 'T') printf("\033[32mT \033[0m");
+                else if (cell == 'R') printf("\033[37mR \033[0m");
+                else if (cell == '@') printf("\033[33m@ \033[0m");
+                else printf(". ");
             } else {
-                printf(". ");
+                // Если не видно — рисуем туман
+                printf("\033[34m? \033[0m"); // Синий вопросик
             }
         }
         printf("\n");
+    }
+    
+    if (shout_turns > 0) {
+        printf("\033[31m[КРИК БЕТМЕНА АКТИВЕН! Осталось ходов: %d]\033[0m\n", shout_turns);
     }
 }
 
@@ -463,10 +492,13 @@ void game_loop(char** map, int height, int width, int start_x, int start_y) {
     int hero_x = start_x;
     int hero_y = start_y;
     char input;
+    int shout_turns = 0; // Сколько ходов осталось кричать
 
     while (1) {
-        draw_map(map, height, width);
-        printf("\nУправление: W (вверх), A (влево), S (вниз), D (вправо). Q - сбежать домой.\n");
+        // Передаем координаты героя и статус крика в отрисовку
+        draw_map(map, height, width, hero_x, hero_y, shout_turns);
+        
+        printf("\nW/A/S/D - движение. R - Крик Бетмена. Q - выход.\n");
         printf("Ваш ход: ");
         
         input = getchar();
@@ -480,6 +512,17 @@ void game_loop(char** map, int height, int width, int start_x, int start_y) {
 
         if (input >= 'A' && input <= 'Z') input += 32;
 
+        // Обработка крика
+        if (input == 'r') {
+            if (shout_turns == 0) {
+                shout_turns = 3; // Активируем на 3 хода
+                printf("\033[31mВы издали крик! Окрестности озарились светом!\033[0m\n");
+            } else {
+                printf("Вы уже кричите!\n");
+            }
+            continue; // Крик не считается ходом, ждем движения
+        }
+
         int new_x = hero_x;
         int new_y = hero_y;
 
@@ -492,19 +535,27 @@ void game_loop(char** map, int height, int width, int start_x, int start_y) {
             continue;
         }
 
+        // Проверяем границы и препятствия
         if (new_x < 0 || new_x >= width || new_y < 0 || new_y >= height) {
             printf("Там край карты!\n");
-            continue;
-        }
-
-        char target_cell = map[new_y][new_x];
-        if (target_cell == '.' || target_cell == ' ') {
-            map[hero_y][hero_x] = '.';
-            hero_x = new_x;
-            hero_y = new_y;
-            map[hero_y][hero_x] = '@';
         } else {
-            printf("Там препятствие (%c)!\n", target_cell);
+            char target_cell = map[new_y][new_x];
+            if (target_cell == '.' || target_cell == ' ') {
+                map[hero_y][hero_x] = '.';
+                hero_x = new_x;
+                hero_y = new_y;
+                map[hero_y][hero_x] = '@';
+                
+                // Если крик был активен, уменьшаем счетчик (ход сделан)
+                if (shout_turns > 0) {
+                    shout_turns--;
+                    if (shout_turns == 0) {
+                        printf("\033[34mТьма снова сгущается...\033[0m\n");
+                    }
+                }
+            } else {
+                printf("Там препятствие (%c)!\n", target_cell);
+            }
         }
     }
 }

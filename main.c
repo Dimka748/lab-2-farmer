@@ -13,17 +13,18 @@
 #define MAX_ITEMS 10
 #define MAX_NAME_LEN 32
 
-#define MAP_MIN_SIZE 5
+#define MAP_MIN_SIZE 8   // Сделали минимум 8, чтобы точно хватало места на D, U и героя
 #define MAP_MAX_SIZE 30
-#define TREE_CHANCE 20
+#define TREE_CHANCE 15   // Уменьшили шанс деревьев
 #define STONE_CHANCE 10
-#define RUNE_CHANCE 5
+#define RUNE_CHANCE 10
 
 /* ===== Глобальные переменные ===== */
 int current_day = START_DAY;
 int current_hour = START_HOUR;
-char farmer_name[MAX_FARMER_NAME] = "";
-char item_names[MAX_ITEMS][MAX_NAME_LEN];
+int current_floor = 1;
+char farmer_name[MAX_FARMER_NAME] = ""; 
+char item_names[MAX_ITEMS][MAX_NAME_LEN]; 
 
 int inventory[INVENTORY_SIZE] = {
     1, 2, 3, 0, 4,
@@ -77,7 +78,7 @@ void put_item(void);
 void drop_item(void);
 void remove_duplicates(void);
 const char* get_item_name(int id);
-void read_string(const char *prompt, char *buf, int size);
+void read_string(const char *prompt, char *buf, int size); 
 void load_items(void);
 void set_default_items(void);
 void find_item_by_name(void);
@@ -86,9 +87,9 @@ void process_schedule(void);
 void start_adventure(void);
 char** create_map(int height, int width);
 void free_map(char** map, int height);
-void generate_map(char** map, int height, int width);
+void generate_map(char** map, int height, int width, int d_x, int d_y);
 void draw_map(char** map, int height, int width, int hero_x, int hero_y);
-void game_loop(char** map, int height, int width, int start_x, int start_y);
+void game_loop(char** map, int height, int width, int start_x, int start_y, int d_x, int d_y);
 
 /* ===== Ввод строки с защитой ===== */
 void read_string(const char *prompt, char *buf, int size) {
@@ -289,7 +290,7 @@ void write_diary(void) {
     printf("Запись добавлена в diary.txt\n");
 }
 
-/* ===== 9. Вариант 7: Расписание ===== */
+/* ===== 9. Расписание ===== */
 void process_schedule(void) {
     FILE *fin = fopen("input.txt", "r");
     if (fin == NULL) {
@@ -397,7 +398,7 @@ const char* get_item_name(int id) {
     return item_names[id];
 }
 
-/* ===== Карта =================================== */
+/* ===== КАРТА =================================== */
 
 char** create_map(int height, int width) {
     char **map = (char**)malloc(height * sizeof(char*));
@@ -415,7 +416,8 @@ void free_map(char** map, int height) {
     free(map);
 }
 
-void generate_map(char** map, int height, int width) {
+void generate_map(char** map, int height, int width, int d_x, int d_y) {
+    // 1. Заполняем всё стенами и случайностями
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             if (y == 0 || y == height - 1 || x == 0 || x == width - 1) {
@@ -429,10 +431,28 @@ void generate_map(char** map, int height, int width) {
             }
         }
     }
+    
+    // 2. Принудительно ставим лестницу ВНИЗ (D)
+    map[d_y][d_x] = 'D';
+
+    // 3. Ставим лестницу ВВЕРХ (U) в случайное свободное место
+    int found = 0;
+    int ux = 1, uy = 1;
+    int attempts = 0;
+    while (!found && attempts < 1000) {
+        ux = rand() % (width - 2) + 1;
+        uy = rand() % (height - 2) + 1;
+        if (map[uy][ux] == '.') { 
+            found = 1;
+        }
+        attempts++;
+    }
+    map[uy][ux] = 'U';
 }
 
 void draw_map(char** map, int height, int width, int hero_x, int hero_y) {
-    printf("\n   ");
+    printf("\nЭтаж: %d\n", current_floor);
+    printf("   ");
     for (int x = 0; x < width; x++) {
         printf("%d ", x % 10);
     }
@@ -445,7 +465,9 @@ void draw_map(char** map, int height, int width, int hero_x, int hero_y) {
             if (cell == '#') printf("\033[90m# \033[0m");
             else if (cell == 'T') printf("\033[32mT \033[0m");
             else if (cell == 'R') printf("\033[37mR \033[0m");
-            else if (cell == '^') printf("\033[35m^ \033[0m");
+            else if (cell == 'U') printf("\033[36mU \033[0m"); 
+            else if (cell == 'D') printf("\033[36mD \033[0m"); 
+            else if (cell == '^') printf("\033[35m^ \033[0m"); 
             else if (cell == '@') printf("\033[33m@ \033[0m");
             else printf(". ");
         }
@@ -453,7 +475,7 @@ void draw_map(char** map, int height, int width, int hero_x, int hero_y) {
     }
 }
 
-void game_loop(char** map, int height, int width, int start_x, int start_y) {
+void game_loop(char** map, int height, int width, int start_x, int start_y, int d_x, int d_y) {
     int hero_x = start_x;
     int hero_y = start_y;
     char input;
@@ -462,7 +484,7 @@ void game_loop(char** map, int height, int width, int start_x, int start_y) {
         system("cls");
         draw_map(map, height, width, hero_x, hero_y);
 
-        printf("\nW/A/S/D - движение. Q - выход.\n");
+        printf("\nW/A/S/D - движение. Q - выход (только на D).\n");
         printf("Ваш ход: ");
 
         input = getchar();
@@ -470,8 +492,16 @@ void game_loop(char** map, int height, int width, int start_x, int start_y) {
         while ((ch = getchar()) != '\n' && ch != EOF);
 
         if (input == 'q' || input == 'Q') {
-            printf("Вы сбежали домой!\n");
-            break;
+            // Если координаты героя совпадают с лестницей D — выходим
+            if (hero_x == d_x && hero_y == d_y) {
+                printf("Вы спустились по лестнице и сбежали домой!\n");
+                break; 
+            } else {
+                printf("\033[31mВыход заблокирован! Ищите лестницу вниз (D).\033[0m\n");
+                printf("Нажмите Enter...\n");
+                getchar();
+                continue; 
+            }
         }
 
         if (input >= 'A' && input <= 'Z') input += 32;
@@ -500,12 +530,17 @@ void game_loop(char** map, int height, int width, int start_x, int start_y) {
             continue;
         }
 
-        map[hero_y][hero_x] = '.';
+        // Очищаем клетку, с которой уходит герой. Если это была D — оставляем D!
+        if (hero_x == d_x && hero_y == d_y) {
+            map[hero_y][hero_x] = 'D';
+        } else {
+            map[hero_y][hero_x] = '.';
+        }
 
+        // ОБРАБОТКА РУНЫ ТЕЛЕПОРТАЦИИ
         if (target_cell == '^') {
             printf("\033[35mВы наступили на руну! Телепортация...\033[0m\n");
-
-            map[new_y][new_x] = '.';
+            map[new_y][new_x] = '.'; 
 
             int found = 0;
             int tx = 0, ty = 0;
@@ -528,19 +563,40 @@ void game_loop(char** map, int height, int width, int start_x, int start_y) {
                 map[hero_y][hero_x] = '@';
                 printf("Не нашлось свободной клетки.\n");
             }
-
             printf("Нажмите Enter...\n");
             getchar();
-        } else {
+            continue;
+        }
+
+        // ОБРАБОТКА ЛЕСТНИЦЫ ВВЕРХ
+        if (target_cell == 'U') {
+            printf("\033[32mВы поднялись по лестнице на этаж выше!\033[0m\n");
+            current_floor++; 
             hero_x = new_x;
             hero_y = new_y;
-            map[hero_y][hero_x] = '@';
+            
+            // На новом этаже D появляется ровно там, куда мы шагнули
+            d_x = hero_x;
+            d_y = hero_y;
+            
+            generate_map(map, height, width, d_x, d_y); 
+            map[hero_y][hero_x] = '@'; 
+
+            printf("Вы на этаже №%d. Нажмите Enter...\n", current_floor);
+            getchar();
+            continue; 
         }
+
+        // ОБЫЧНЫЙ ШАГ
+        hero_x = new_x;
+        hero_y = new_y;
+        map[hero_y][hero_x] = '@';
     }
 }
 
 void start_adventure(void) {
     printf("\n--- ВЫ ОТПРАВИЛИСЬ В ПРИКЛЮЧЕНИЕ ---\n");
+    current_floor = 1; 
 
     int height = MAP_MIN_SIZE + rand() % (MAP_MAX_SIZE - MAP_MIN_SIZE + 1);
     int width = MAP_MIN_SIZE + rand() % (MAP_MAX_SIZE - MAP_MIN_SIZE + 1);
@@ -550,19 +606,24 @@ void start_adventure(void) {
     char **map = create_map(height, width);
     if (map == NULL) return;
 
-    generate_map(map, height, width);
+    // D ставим в центр карты
+    int d_x = width / 2;
+    int d_y = height / 2;
 
-    int hero_x, hero_y;
-    int found = 0;
-    while (found == 0) {
-        hero_x = rand() % (width - 2) + 1;
-        hero_y = rand() % (height - 2) + 1;
-        if (map[hero_y][hero_x] == '.') found = 1;
-    }
+    generate_map(map, height, width, d_x, d_y);
+    
+    // Героя ставим РЯДОМ с D, чтобы лестницу было видно на экране!
+    int hero_x = d_x;
+    int hero_y = d_y;
 
+    if (map[d_y][d_x + 1] == '.') { hero_x = d_x + 1; }
+    else if (map[d_y][d_x - 1] == '.') { hero_x = d_x - 1; }
+    else if (map[d_y + 1][d_x] == '.') { hero_y = d_y + 1; }
+    else if (map[d_y - 1][d_x] == '.') { hero_y = d_y - 1; }
+    
     map[hero_y][hero_x] = '@';
 
-    game_loop(map, height, width, hero_x, hero_y);
+    game_loop(map, height, width, hero_x, hero_y, d_x, d_y);
 
     free_map(map, height);
 

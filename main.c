@@ -82,8 +82,6 @@ void set_default_items(void);
 void find_item_by_name(void);
 void write_diary(void);
 void process_schedule(void);
-
-// Лаба 4
 void start_adventure(void);
 char** create_map(int height, int width);
 void free_map(char** map, int height);
@@ -448,10 +446,10 @@ void draw_map(char** map, int height, int width, int hero_x, int hero_y, int sho
             int dist_x = abs(x - hero_x);
             int dist_y = abs(y - hero_y);
             
-            // Радиус обычного зрения — 5 клеток
-            int view_radius = 5;
-            // Радиус крика — 7 клеток
-            int shout_radius = 7;
+            // Радиус обычного зрения — 1 клетка
+            int view_radius = 1;
+            // Радиус крика — 6 клеток
+            int shout_radius = 6;
 
             int is_visible = 0;
 
@@ -495,6 +493,8 @@ void game_loop(char** map, int height, int width, int start_x, int start_y) {
     int shout_turns = 0; // Сколько ходов осталось кричать
 
     while (1) {
+        // Очищаем экран
+        system("cls");
         // Передаем координаты героя и статус крика в отрисовку
         draw_map(map, height, width, hero_x, hero_y, shout_turns);
         

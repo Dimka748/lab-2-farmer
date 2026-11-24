@@ -9,3 +9,5 @@
 *.sln
 .DS_Store
 Thumbs.db
+output.txt
+diary.txt
